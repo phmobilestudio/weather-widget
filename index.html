@@ -6,44 +6,53 @@
 <title>Weather Widget</title>
 
 <style>
-  body {
+  html, body {
     margin: 0;
     padding: 0;
-    background: transparent !important;
+    background: transparent;
+    overflow: hidden !important; /* Prevent scrollbars */
     font-family: Arial, sans-serif;
   }
 
   .weather-widget {
-    width: 100%;
-    max-width: 280px;
-    margin: auto;
-    text-align: center;
-    color: #222;
-    font-size: 11px; /* Smaller text */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: max-content;
+    max-width: 100%;
+    padding: 0;
+    margin: 0 auto;
+    font-size: 11px;
+    background: transparent;
   }
 
   .current-temp {
     font-size: 20px;
     font-weight: bold;
+    line-height: 1;
   }
 
   .icon-large {
-    font-size: 26px;
-    margin: 5px 0;
+    font-size: 24px;
+    margin: 4px 0;
+    line-height: 1;
   }
 
   .forecast {
+    width: 100%;
     display: flex;
     justify-content: space-between;
-    margin-top: 10px;
+    margin-top: 6px;
+    background: transparent;
   }
 
   .day {
     flex: 1;
+    text-align: center;
   }
 
   .day div {
-    margin-bottom: 3px;
+    margin-bottom: 2px;
   }
 </style>
 </head>
@@ -55,25 +64,20 @@
   <div class="current-temp" id="temp">--°C</div>
   <div class="icon-large" id="icon">⛅</div>
 
-  <div class="forecast" id="forecast">
-    <!-- Forecast populated by JS -->
-  </div>
+  <div class="forecast" id="forecast"></div>
 </div>
 
 <script>
 (async () => {
   try {
-    // 🔵 Step 1: Detect location using free IP Geolocation
     const geo = await fetch("https://ipapi.co/json/").then(r => r.json());
 
     const lat = geo.latitude;
     const lon = geo.longitude;
-
     if (!lat || !lon) throw new Error("Location unavailable");
 
     document.getElementById("place").textContent = geo.city || "Your Location";
 
-    // 🔵 Step 2: Fetch weather using Open-Meteo
     const weatherURL =
       `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
       `&current=temperature_2m,weather_code` +
@@ -82,11 +86,9 @@
 
     const data = await fetch(weatherURL).then(r => r.json());
 
-    // 🌡 Current temp
     document.getElementById("temp").textContent =
       data.current.temperature_2m + "°C";
 
-    // 🌤 Weather icon from code
     const wmo = data.current.weather_code;
     const icons = {
       0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
@@ -94,10 +96,8 @@
       51: "🌦️", 61: "🌧️", 71: "❄️",
       95: "⛈️"
     };
-
     document.getElementById("icon").textContent = icons[wmo] || "⛅";
 
-    // 📅 Forecast
     let out = "";
     for (let i = 1; i <= 3; i++) {
       out += `
@@ -107,6 +107,7 @@
           <div>${data.daily.temperature_2m_max[i]}° / ${data.daily.temperature_2m_min[i]}°</div>
         </div>`;
     }
+
     document.getElementById("forecast").innerHTML = out;
 
   } catch (err) {
