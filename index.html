@@ -1,0 +1,90 @@
+https://phmobilestudio.github.io/weather-widget/
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather Widget</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background: #f2f4f8;
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+    }
+
+    .card {
+        width: 100%;
+        max-width: 380px;
+        background: white;
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+
+    .temp {
+        font-size: 48px;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+
+    .location {
+        font-size: 22px;
+        font-weight: 600;
+        margin-top: 5px;
+    }
+
+    .details {
+        font-size: 16px;
+        margin-top: 10px;
+        color: #555;
+    }
+</style>
+
+</head>
+<body>
+
+<div class="card">
+    <h2>🌤️ Weather Update</h2>
+    <div id="location" class="location">Detecting location...</div>
+    <div id="temperature" class="temp"></div>
+    <div id="details" class="details"></div>
+</div>
+
+
+<script>
+// 1. Detect Location
+fetch("https://ipinfo.io/json?token=fb1e3c751a7197")
+.then(response => response.json())
+.then(data => {
+    const loc = data.loc.split(",");
+    const latitude = loc[0];
+    const longitude = loc[1];
+    const city = data.city;
+    const region = data.region;
+
+    document.getElementById("location").innerHTML = city + ", " + region;
+
+    // 2. Get Weather
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`)
+    .then(res => res.json())
+    .then(weather => {
+        const temp = weather.current_weather.temperature;
+        const wind = weather.current_weather.windspeed;
+        const code = weather.current_weather.weathercode;
+
+        document.getElementById("temperature").innerHTML = temp + "°C";
+
+        document.getElementById("details").innerHTML =
+            "Wind: " + wind + " km/h<br>" +
+            "Condition Code: " + code;
+    });
+});
+</script>
+
+</body>
+</html>
