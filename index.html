@@ -5,23 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PH Weather Widget Premium</title>
 <style>
-    body { margin:0; font-family: Arial, sans-serif; background: #f2f4f8; display:flex; justify-content:center; padding:20px;}
-    .card { width:100%; max-width:380px; background: linear-gradient(145deg, #ffffff, #e6f0ff); border-radius:20px; padding:20px; box-shadow:0 8px 20px rgba(0,0,0,0.2); text-align:center;}
-    .location { font-size:24px; font-weight:700; margin-bottom:10px; color:#1a237e;}
-    .temp { font-size:50px; font-weight:bold; margin:5px 0; color:#ff5722;}
-    .condition { font-size:18px; margin:8px 0; color:#1976d2;}
-    .forecast { display:flex; justify-content:space-around; margin-top:15px;}
-    .day { text-align:center;}
-    .day .icon { font-size:28px;}
-    .day .temp { font-weight:bold; margin-top:5px; color:#ff5722;}
-    @media (prefers-color-scheme: dark) {
-        body { background:#1a1a1a; }
-        .card { background:#2a2a2a; color:#f2f2f2; }
-        .location { color:#ffffff; }
-        .temp { color:#ffc107; }
-        .condition { color:#90caf9; }
-        .day .temp { color:#ffc107; }
-    }
+body { margin:0; font-family: Arial, sans-serif; background: #f2f4f8; display:flex; justify-content:center; padding:20px;}
+.card { width:100%; max-width:380px; background: linear-gradient(145deg, #ffffff, #e6f0ff); border-radius:20px; padding:20px; box-shadow:0 8px 20px rgba(0,0,0,0.2); text-align:center;}
+.location { font-size:24px; font-weight:700; margin-bottom:10px; color:#1a237e;}
+.temp { font-size:50px; font-weight:bold; margin:5px 0; color:#ff5722;}
+.condition { font-size:18px; margin:8px 0; color:#1976d2;}
+.forecast { display:flex; justify-content:space-around; margin-top:15px;}
+.day { text-align:center;}
+.day .icon { font-size:28px;}
+.day .temp { font-weight:bold; margin-top:5px; color:#ff5722;}
+@media (prefers-color-scheme: dark) {
+    body { background:#1a1a1a; }
+    .card { background:#2a2a2a; color:#f2f2f2; }
+    .location { color:#ffffff; }
+    .temp { color:#ffc107; }
+    .condition { color:#90caf9; }
+    .day .temp { color:#ffc107; }
+}
 </style>
 </head>
 <body>
@@ -44,45 +44,46 @@ const weatherIcons = {
     96: '⛈️', 99: '⛈️'
 };
 
-// Fallback function in case API fails
-function showError() {
+function showError(msg) {
     document.getElementById("location").textContent = "Location unavailable";
     document.getElementById("temp").textContent = "--°C";
-    document.getElementById("condition").textContent = "Unable to load weather";
+    document.getElementById("condition").textContent = msg || "Unable to load weather";
 }
 
-fetch("https://ipinfo.io/json?token=fb1e3c751a7197")
-.then(res => res.json())
-.then(loc => {
-    const [lat, lon] = loc.loc.split(",");
-    const city = loc.city + ", " + loc.region;
-    document.getElementById("location").textContent = city;
+if ("geolocation" in navigator) {
+    navigator.geolocation.getCurrentPosition(position => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
 
-    // Fetch current + daily weather
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`)
-    .then(res => res.json())
-    .then(data => {
-        if(!data.current_weather) { showError(); return; }
+        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`)
+        .then(res => res.json())
+        .then(data => {
+            // Current weather
+            const city = `Your Location`;
+            document.getElementById("location").textContent = city;
 
-        // Current weather
-        document.getElementById("temp").textContent = data.current_weather.temperature + "°C";
-        document.getElementById("condition").textContent = weatherIcons[data.current_weather.weathercode] || "🌤️";
+            document.getElementById("temp").textContent = data.current_weather.temperature + "°C";
+            document.getElementById("condition").textContent = weatherIcons[data.current_weather.weathercode] || "🌤️";
 
-        // 3-day forecast
-        const forecastDiv = document.getElementById("forecast");
-        forecastDiv.innerHTML = '';
-        for(let i=0; i<3 && i<data.daily.time.length; i++){
-            const day = new Date(data.daily.time[i]).toLocaleDateString('en-US', { weekday: 'short' });
-            const icon = weatherIcons[data.daily.weathercode[i]] || '🌤️';
-            const tempMax = Math.round(data.daily.temperature_2m_max[i]);
-            const tempMin = Math.round(data.daily.temperature_2m_min[i]);
-            const dayDiv = document.createElement('div');
-            dayDiv.className = 'day';
-            dayDiv.innerHTML = `<div class="day-name">${day}</div><div class="icon">${icon}</div><div class="temp">${tempMax}° / ${tempMin}°</div>`;
-            forecastDiv.appendChild(dayDiv);
-        }
-    }).catch(showError);
-}).catch(showError);
+            // 3-day forecast
+            const forecastDiv = document.getElementById("forecast");
+            forecastDiv.innerHTML = '';
+            for (let i = 0; i < 3 && i < data.daily.time.length; i++) {
+                const day = new Date(data.daily.time[i]).toLocaleDateString('en-US', { weekday: 'short' });
+                const icon = weatherIcons[data.daily.weathercode[i]] || '🌤️';
+                const tempMax = Math.round(data.daily.temperature_2m_max[i]);
+                const tempMin = Math.round(data.daily.temperature_2m_min[i]);
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day';
+                dayDiv.innerHTML = `<div class="day-name">${day}</div><div class="icon">${icon}</div><div class="temp">${tempMax}° / ${tempMin}°</div>`;
+                forecastDiv.appendChild(dayDiv);
+            }
+        })
+        .catch(err => showError("Weather API error"));
+    }, err => showError("Location access denied"));
+} else {
+    showError("Geolocation not supported");
+}
 </script>
 
 </body>
