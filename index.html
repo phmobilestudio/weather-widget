@@ -1,148 +1,90 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Weather Widget</title>
-
-<link rel="preconnect" href="https://api.open-meteo.com">
-<link rel="preconnect" href="https://ipinfo.io">
-
-<style>
-  body {
-    margin: 0;
-    background: transparent;
-    font-family: Arial, sans-serif;
-    font-size: 11px;
-    color: #222;
-  }
-  .weather-box {
-    width: 100%;
-    max-width: 280px;
-    margin: auto;
-    text-align: center;
-  }
-  .temp {
-    font-size: 20px;
-    font-weight: bold;
-  }
-  .big-icon {
-    font-size: 26px;
-    margin: 4px 0;
-  }
-  .forecast {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 8px;
-  }
-  .day { flex: 1; }
-  .day div { margin-bottom: 2px; }
-
-  /* Manual location UI */
-  #manualBox {
-    margin-top: 8px;
-    display: none;
-  }
-  #locationInput {
-    width: 90%;
-    padding: 4px;
-    font-size: 11px;
-  }
-  .btn {
-    margin-top: 5px;
-    background: #0d6efd;
-    color: white;
-    padding: 4px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 11px;
-    border: none;
-  }
-</style>
-</head>
-
-<body>
-<div class="weather-box">
-  <div id="loc">Loading…</div>
-  <div class="temp" id="temp">--°C</div>
-  <div class="big-icon" id="icon">⛅</div>
-  <div class="forecast" id="forecast"></div>
-
-  <button class="btn" onclick="toggleManual()">Change Location</button>
-
-  <div id="manualBox">
-    <input id="locationInput" placeholder="Enter city (e.g. Manila)" />
-    <button class="btn" onclick="manualSearch()">OK</button>
-  </div>
+<div id="weatherBox" style="font-family:Arial, sans-serif; font-size:11px; max-width:300px; margin:auto; border-radius:10px; padding:10px; color:#222; background:#f9f9f9;">
+  <div id="weatherContent">Loading weather...</div>
+  <button id="changeLocBtn" style="margin-top:8px; font-size:11px; padding:4px 8px; border:none; border-radius:4px; background:#0d6efd; color:white; cursor:pointer;">Change Location</button>
 </div>
 
-<script defer>
-const icons={
-  0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",
-  48:"🌫️",51:"🌦️",61:"🌧️",71:"❄️",95:"⛈️"
-};
+<script>
+const weatherContent = document.getElementById("weatherContent");
+const changeLocBtn = document.getElementById("changeLocBtn");
+const ICONS = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",61:"🌧️",71:"❄️",95:"⛈️"};
 
-async function loadWeather(lat, lon, placeName="Your Location") {
-  document.getElementById("loc").textContent = placeName;
+// Dark Mode
+const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+document.getElementById("weatherBox").style.background = darkMode ? "#2c2c2c" : "#f9f9f9";
+document.getElementById("weatherBox").style.color = darkMode ? "#f9f9f9" : "#222";
 
-  const w = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
-    `&current=temperature_2m,weather_code`+
-    `&daily=weather_code,temperature_2m_max,temperature_2m_min`+
-    `&timezone=auto`
-  ).then(r=>r.json());
-
-  document.getElementById("temp").textContent = w.current.temperature_2m+"°C";
-  document.getElementById("icon").textContent = icons[w.current.weather_code] || "⛅";
-
-  let out="";
-  for(let i=1;i<=3;i++){
-    out += `
-      <div class="day">
-        <div><b>${new Date(w.daily.time[i]).toLocaleDateString("en-US",{weekday:"short"})}</b></div>
-        <div>${icons[w.daily.weather_code[i]] || "⛅"}</div>
-        <div>${w.daily.temperature_2m_max[i]}° / ${w.daily.temperature_2m_min[i]}°</div>
-      </div>`;
+// Helper: Display weather
+function displayWeather(current, forecast) {
+  let forecastHTML = '';
+  for (let i=1;i<=3;i++){
+    forecastHTML += `<div style="flex:1; text-align:center; margin-top:3px;">
+      <div><b>${new Date(forecast.time[i]).toLocaleDateString("en-US",{weekday:"short"})}</b></div>
+      <div>${ICONS[forecast.weather_code[i]]||"⛅"}</div>
+      <div>${forecast.temperature_2m_max[i]}° / ${forecast.temperature_2m_min[i]}°</div>
+    </div>`;
   }
-  document.getElementById("forecast").innerHTML = out;
+
+  weatherContent.innerHTML = `
+    <div style="text-align:center;">
+      <div><b>${current.temperature}°C</b></div>
+      <div style="font-size:24px;">${ICONS[current.weathercode]||"⛅"}</div>
+      <div style="display:flex; justify-content:space-between;">${forecastHTML}</div>
+    </div>
+  `;
 }
 
-// AUTO-LOCATION (default)
-(async()=>{
+// Fetch weather from Open-Meteo
+async function loadWeather(lat, lon) {
   try {
-    const geo = await fetch("https://ipinfo.io/json?token=fa7e3a51cbea66").then(r=>r.json());
-    const [lat, lon] = geo.loc.split(",");
-    loadWeather(lat, lon, geo.city);
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
+    const data = await fetch(url).then(r=>r.json());
+    localStorage.setItem("weatherLat", lat);
+    localStorage.setItem("weatherLon", lon);
+    displayWeather(data.current_weather, data.daily);
   } catch {
-    document.getElementById("loc").textContent = "Location unavailable";
+    weatherContent.innerHTML = "Unable to load weather.";
   }
-})();
-
-// UI toggle
-function toggleManual(){
-  const box = document.getElementById("manualBox");
-  box.style.display = box.style.display === "block" ? "none" : "block";
 }
 
-// Manual location search
-async function manualSearch(){
-  const city = document.getElementById("locationInput").value;
+// Manual location
+async function manualSearch() {
+  const city = prompt("Enter city name:");
   if(!city) return;
-
-  // Use Open-Meteo geocoding (free & fast)
-  const data = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`
-  ).then(r=>r.json());
-
-  if(!data.results || data.results.length === 0){
-    document.getElementById("loc").textContent = "City not found";
-    return;
+  weatherContent.innerHTML = "Searching location...";
+  try {
+    const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`).then(r=>r.json());
+    if(!geo.results?.length) { weatherContent.innerHTML="Location not found"; return; }
+    loadWeather(geo.results[0].latitude, geo.results[0].longitude);
+  } catch {
+    weatherContent.innerHTML="Error finding location";
   }
-
-  const result = data.results[0];
-  loadWeather(result.latitude, result.longitude, result.name);
 }
-</script>
 
-</body>
-</html>
+// Init
+async function startWeather() {
+  const savedLat = localStorage.getItem("weatherLat");
+  const savedLon = localStorage.getItem("weatherLon");
+  if(savedLat && savedLon){
+    loadWeather(savedLat,savedLon);
+  } else {
+    navigator.geolocation.getCurrentPosition(
+      pos => loadWeather(pos.coords.latitude,pos.coords.longitude),
+      () => manualSearch(),
+      {timeout:3000}
+    );
+  }
+}
+
+// Change location button
+changeLocBtn.onclick = manualSearch;
+
+// Auto-refresh every 10 min
+setInterval(() => {
+  const savedLat = localStorage.getItem("weatherLat");
+  const savedLon = localStorage.getItem("weatherLon");
+  if(savedLat && savedLon) loadWeather(savedLat,savedLon);
+}, 600000);
+
+// Start widget
+startWeather();
+</script>
