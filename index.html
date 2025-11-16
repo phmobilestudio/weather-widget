@@ -2,120 +2,146 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Weather Widget</title>
 
+<link rel="preconnect" href="https://api.open-meteo.com">
+<link rel="preconnect" href="https://ipinfo.io">
+
 <style>
-  html, body {
+  body {
     margin: 0;
-    padding: 0;
     background: transparent;
-    overflow: hidden !important; /* Prevent scrollbars */
     font-family: Arial, sans-serif;
-  }
-
-  .weather-widget {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: max-content;
-    max-width: 100%;
-    padding: 0;
-    margin: 0 auto;
     font-size: 11px;
-    background: transparent;
+    color: #222;
   }
-
-  .current-temp {
-    font-size: 20px;
-    font-weight: bold;
-    line-height: 1;
-  }
-
-  .icon-large {
-    font-size: 24px;
-    margin: 4px 0;
-    line-height: 1;
-  }
-
-  .forecast {
+  .weather-box {
     width: 100%;
-    display: flex;
-    justify-content: space-between;
-    margin-top: 6px;
-    background: transparent;
-  }
-
-  .day {
-    flex: 1;
+    max-width: 280px;
+    margin: auto;
     text-align: center;
   }
+  .temp {
+    font-size: 20px;
+    font-weight: bold;
+  }
+  .big-icon {
+    font-size: 26px;
+    margin: 4px 0;
+  }
+  .forecast {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+  }
+  .day { flex: 1; }
+  .day div { margin-bottom: 2px; }
 
-  .day div {
-    margin-bottom: 2px;
+  /* Manual location UI */
+  #manualBox {
+    margin-top: 8px;
+    display: none;
+  }
+  #locationInput {
+    width: 90%;
+    padding: 4px;
+    font-size: 11px;
+  }
+  .btn {
+    margin-top: 5px;
+    background: #0d6efd;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    border: none;
   }
 </style>
 </head>
 
 <body>
-
-<div class="weather-widget">
-  <div id="place">Your Location</div>
-  <div class="current-temp" id="temp">--°C</div>
-  <div class="icon-large" id="icon">⛅</div>
-
+<div class="weather-box">
+  <div id="loc">Loading…</div>
+  <div class="temp" id="temp">--°C</div>
+  <div class="big-icon" id="icon">⛅</div>
   <div class="forecast" id="forecast"></div>
+
+  <button class="btn" onclick="toggleManual()">Change Location</button>
+
+  <div id="manualBox">
+    <input id="locationInput" placeholder="Enter city (e.g. Manila)" />
+    <button class="btn" onclick="manualSearch()">OK</button>
+  </div>
 </div>
 
-<script>
-(async () => {
+<script defer>
+const icons={
+  0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",
+  48:"🌫️",51:"🌦️",61:"🌧️",71:"❄️",95:"⛈️"
+};
+
+async function loadWeather(lat, lon, placeName="Your Location") {
+  document.getElementById("loc").textContent = placeName;
+
+  const w = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}`+
+    `&current=temperature_2m,weather_code`+
+    `&daily=weather_code,temperature_2m_max,temperature_2m_min`+
+    `&timezone=auto`
+  ).then(r=>r.json());
+
+  document.getElementById("temp").textContent = w.current.temperature_2m+"°C";
+  document.getElementById("icon").textContent = icons[w.current.weather_code] || "⛅";
+
+  let out="";
+  for(let i=1;i<=3;i++){
+    out += `
+      <div class="day">
+        <div><b>${new Date(w.daily.time[i]).toLocaleDateString("en-US",{weekday:"short"})}</b></div>
+        <div>${icons[w.daily.weather_code[i]] || "⛅"}</div>
+        <div>${w.daily.temperature_2m_max[i]}° / ${w.daily.temperature_2m_min[i]}°</div>
+      </div>`;
+  }
+  document.getElementById("forecast").innerHTML = out;
+}
+
+// AUTO-LOCATION (default)
+(async()=>{
   try {
-    const geo = await fetch("https://ipapi.co/json/").then(r => r.json());
-
-    const lat = geo.latitude;
-    const lon = geo.longitude;
-    if (!lat || !lon) throw new Error("Location unavailable");
-
-    document.getElementById("place").textContent = geo.city || "Your Location";
-
-    const weatherURL =
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-      `&current=temperature_2m,weather_code` +
-      `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
-      `&timezone=auto`;
-
-    const data = await fetch(weatherURL).then(r => r.json());
-
-    document.getElementById("temp").textContent =
-      data.current.temperature_2m + "°C";
-
-    const wmo = data.current.weather_code;
-    const icons = {
-      0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
-      45: "🌫️", 48: "🌫️",
-      51: "🌦️", 61: "🌧️", 71: "❄️",
-      95: "⛈️"
-    };
-    document.getElementById("icon").textContent = icons[wmo] || "⛅";
-
-    let out = "";
-    for (let i = 1; i <= 3; i++) {
-      out += `
-        <div class="day">
-          <div><strong>${new Date(data.daily.time[i]).toLocaleDateString("en-US", { weekday: "short" })}</strong></div>
-          <div>${icons[data.daily.weather_code[i]] || "⛅"}</div>
-          <div>${data.daily.temperature_2m_max[i]}° / ${data.daily.temperature_2m_min[i]}°</div>
-        </div>`;
-    }
-
-    document.getElementById("forecast").innerHTML = out;
-
-  } catch (err) {
-    document.getElementById("place").textContent = "Location unavailable";
-    document.getElementById("temp").textContent = "--°C";
-    document.getElementById("icon").textContent = "⚠️";
+    const geo = await fetch("https://ipinfo.io/json?token=fa7e3a51cbea66").then(r=>r.json());
+    const [lat, lon] = geo.loc.split(",");
+    loadWeather(lat, lon, geo.city);
+  } catch {
+    document.getElementById("loc").textContent = "Location unavailable";
   }
 })();
+
+// UI toggle
+function toggleManual(){
+  const box = document.getElementById("manualBox");
+  box.style.display = box.style.display === "block" ? "none" : "block";
+}
+
+// Manual location search
+async function manualSearch(){
+  const city = document.getElementById("locationInput").value;
+  if(!city) return;
+
+  // Use Open-Meteo geocoding (free & fast)
+  const data = await fetch(
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`
+  ).then(r=>r.json());
+
+  if(!data.results || data.results.length === 0){
+    document.getElementById("loc").textContent = "City not found";
+    return;
+  }
+
+  const result = data.results[0];
+  loadWeather(result.latitude, result.longitude, result.name);
+}
 </script>
 
 </body>
