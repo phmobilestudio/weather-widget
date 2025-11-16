@@ -1,248 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PH Weather Widget (Small Font)</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weather Widget</title>
+
 <style>
-body {
-    margin:0;
+  body {
+    margin: 0;
+    padding: 0;
+    background: transparent !important;
     font-family: Arial, sans-serif;
-    background:#f2f4f8;
-    display:flex;
-    justify-content:center;
-    padding:15px;
-}
-.card {
-    width:100%;
-    max-width:360px;
-    background: linear-gradient(145deg,#ffffff,#e6f0ff);
-    border-radius:18px;
-    padding:15px;
-    box-shadow:0 6px 18px rgba(0,0,0,0.2);
-    text-align:center;
-    position:relative;
-    overflow:hidden;
-}
+  }
 
-/* FONT SIZE ADJUSTMENTS */
-.location { 
-    font-size:14px; 
-    font-weight:700; 
-    margin-bottom:6px; 
-    color:#1a237e; 
-}
-.temp { 
-    font-size:32px; 
-    font-weight:bold; 
-    margin:4px 0; 
-    color:#ff5722; 
-}
-.condition { 
-    font-size:13px; 
-    color:#1976d2; 
-}
-.forecast { 
-    display:flex; 
-    justify-content:space-around; 
-    margin-top:12px; 
-}
-.day { text-align:center; font-size:11px; }
-.day .icon { font-size:20px; }
-.day .temp { color:#ff5722; font-size:11px; font-weight:600; margin-top:3px; }
+  .weather-widget {
+    width: 100%;
+    max-width: 280px;
+    margin: auto;
+    text-align: center;
+    color: #222;
+    font-size: 11px; /* Smaller text */
+  }
 
-/* MINI WEATHER ANIMATIONS */
-.sun {
-    position:absolute; top:18px; left:50%;
-    transform:translateX(-50%);
-    width:55px; height:55px;
-    background:yellow; border-radius:50%;
-    animation:sunMove 10s linear infinite;
-    opacity:0.8;
-}
-@keyframes sunMove {
-    0%{top:18px;} 50%{top:10px;} 100%{top:18px;}
-}
+  .current-temp {
+    font-size: 20px;
+    font-weight: bold;
+  }
 
-.cloud {
-    position:absolute;
-    top:25px;
-    width:90px; height:40px;
-    background:#fff; border-radius:50px;
-    opacity:0.8;
-    animation:cloudMove 60s linear infinite;
-}
-.cloud::before, .cloud::after {
-    content:"";
-    position:absolute;
-    background:#fff;
-    width:40px; height:40px;
-    border-radius:50%;
-}
-.cloud::before { top:-20px; left:8px; }
-.cloud::after { top:-10px; left:30px; }
-@keyframes cloudMove {
-    0%{left:-120px;} 100%{left:380px;}
-}
+  .icon-large {
+    font-size: 26px;
+    margin: 5px 0;
+  }
 
-.rain { position:absolute; top:0; width:100%; height:100%; pointer-events:none; }
-.drop {
-    position:absolute;
-    width:2px; height:8px;
-    background:#00f;
-    animation:rainFall 1s linear infinite;
-}
-@keyframes rainFall {
-    0%{top:-10px;} 100%{top:250px;}
-}
+  .forecast {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
 
-.snow { position:absolute; top:0; width:100%; height:100%; pointer-events:none; }
-.sflake {
-    position:absolute;
-    width:4px; height:4px;
-    background:white; border-radius:50%;
-    animation:snowFall 5s linear infinite;
-}
-@keyframes snowFall {
-    0%{top:-5px;} 100%{top:260px;}
-}
+  .day {
+    flex: 1;
+  }
 
-@media (prefers-color-scheme: dark) {
-    body { background:#1a1a1a; }
-    .card { background:#2a2a2a; color:#f2f2f2; }
-    .location { color:#ffffff; }
-    .temp { color:#ffc107; }
-    .condition { color:#90caf9; }
-    .day .temp { color:#ffc107; }
-}
+  .day div {
+    margin-bottom: 3px;
+  }
 </style>
 </head>
+
 <body>
 
-<div class="card" id="weather-card">
-    <div id="location" class="location">Detecting location...</div>
-    <div id="temp" class="temp">--°C</div>
-    <div id="condition" class="condition">Loading...</div>
-    <div class="forecast" id="forecast"></div>
+<div class="weather-widget">
+  <div id="place">Your Location</div>
+  <div class="current-temp" id="temp">--°C</div>
+  <div class="icon-large" id="icon">⛅</div>
+
+  <div class="forecast" id="forecast">
+    <!-- Forecast populated by JS -->
+  </div>
 </div>
 
 <script>
-const weatherIcons = {
-    0:'☀️',1:'🌤️',2:'⛅',3:'☁️',
-    45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',
-    55:'🌧️',56:'🌨️',57:'🌨️',61:'🌧️',
-    63:'🌧️',65:'🌧️',66:'❄️',67:'❄️',
-    71:'❄️',73:'❄️',75:'❄️',77:'❄️',
-    80:'🌧️',81:'🌧️',82:'🌧️',95:'⛈️',
-    96:'⛈️',99:'⛈️'
-};
+(async () => {
+  try {
+    // 🔵 Step 1: Detect location using free IP Geolocation
+    const geo = await fetch("https://ipapi.co/json/").then(r => r.json());
 
-function showError(msg){
-    document.getElementById("location").textContent="Location unavailable";
-    document.getElementById("temp").textContent="--°C";
-    document.getElementById("condition").textContent=msg||"Unable to load weather";
-}
+    const lat = geo.latitude;
+    const lon = geo.longitude;
 
-function clearWeatherEffects(){
-    document.querySelectorAll('.sun,.cloud,.rain,.drop,.snow,.sflake')
-        .forEach(e=>e.remove());
-}
+    if (!lat || !lon) throw new Error("Location unavailable");
 
-function addWeatherEffect(code){
-    const card=document.getElementById("weather-card");
-    clearWeatherEffects();
+    document.getElementById("place").textContent = geo.city || "Your Location";
 
-    if(code===0){
-        const sun=document.createElement("div");
-        sun.className="sun";
-        card.appendChild(sun);
+    // 🔵 Step 2: Fetch weather using Open-Meteo
+    const weatherURL =
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,weather_code` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
+      `&timezone=auto`;
+
+    const data = await fetch(weatherURL).then(r => r.json());
+
+    // 🌡 Current temp
+    document.getElementById("temp").textContent =
+      data.current.temperature_2m + "°C";
+
+    // 🌤 Weather icon from code
+    const wmo = data.current.weather_code;
+    const icons = {
+      0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+      45: "🌫️", 48: "🌫️",
+      51: "🌦️", 61: "🌧️", 71: "❄️",
+      95: "⛈️"
+    };
+
+    document.getElementById("icon").textContent = icons[wmo] || "⛅";
+
+    // 📅 Forecast
+    let out = "";
+    for (let i = 1; i <= 3; i++) {
+      out += `
+        <div class="day">
+          <div><strong>${new Date(data.daily.time[i]).toLocaleDateString("en-US", { weekday: "short" })}</strong></div>
+          <div>${icons[data.daily.weather_code[i]] || "⛅"}</div>
+          <div>${data.daily.temperature_2m_max[i]}° / ${data.daily.temperature_2m_min[i]}°</div>
+        </div>`;
     }
-    else if([1,2,3].includes(code)){
-        const cloud=document.createElement("div");
-        cloud.className="cloud";
-        cloud.style.top="25px";
-        card.appendChild(cloud);
-    }
-    else if([51,53,55,61,63,65,80,81,82].includes(code)){
-        const cloud=document.createElement("div");
-        cloud.className="cloud";
-        card.appendChild(cloud);
-        for(let i=0;i<20;i++){
-            const drop=document.createElement("div");
-            drop.className="drop";
-            drop.style.left=Math.random()*100+"%";
-            drop.style.animationDuration=(0.5+Math.random()*1.5)+"s";
-            card.appendChild(drop);
-        }
-    }
-    else{
-        const cloud=document.createElement("div");
-        cloud.className="cloud";
-        card.appendChild(cloud);
-        for(let i=0;i<15;i++){
-            const sf=document.createElement("div");
-            sf.className="sflake";
-            sf.style.left=Math.random()*100+"%";
-            sf.style.animationDuration=(3+Math.random()*3)+"s";
-            card.appendChild(sf);
-        }
-    }
-}
+    document.getElementById("forecast").innerHTML = out;
 
-function fetchWeather(lat,lon,cityName){
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`)
-    .then(r=>r.json())
-    .then(data=>{
-        if(!data.current_weather){ showError("Weather unavailable"); return; }
-
-        const code=data.current_weather.weathercode;
-
-        document.getElementById("location").textContent=cityName||"Your Location";
-        document.getElementById("temp").textContent=data.current_weather.temperature+"°C";
-        document.getElementById("condition").textContent=weatherIcons[code]||"🌤️";
-
-        addWeatherEffect(code);
-
-        const forecastDiv=document.getElementById("forecast");
-        forecastDiv.innerHTML="";
-
-        for(let i=0;i<3;i++){
-            const dayName=new Date(data.daily.time[i]).toLocaleDateString("en-US",{weekday:"short"});
-            const icon=weatherIcons[data.daily.weathercode[i]]||"🌤️";
-            const max=Math.round(data.daily.temperature_2m_max[i]);
-            const min=Math.round(data.daily.temperature_2m_min[i]);
-
-            forecastDiv.innerHTML += `
-                <div class="day">
-                    <div>${dayName}</div>
-                    <div class="icon">${icon}</div>
-                    <div class="temp">${max}° / ${min}°</div>
-                </div>
-            `;
-        }
-    })
-    .catch(()=>showError("Weather API error"));
-}
-
-function detectLocation(){
-    if("geolocation" in navigator){
-        navigator.geolocation.getCurrentPosition(
-            pos=>fetchWeather(pos.coords.latitude,pos.coords.longitude,"Your Location"),
-            ()=>fetchIPLocation()
-        );
-    } else fetchIPLocation();
-}
-
-function fetchIPLocation(){
-    fetch("https://geolocation-db.com/json/")
-    .then(r=>r.json())
-    .then(loc=>{
-        fetchWeather(loc.latitude,loc.longitude,loc.city||"Your Location");
-    })
-    .catch(()=>showError("Location unavailable"));
-}
-
-detectLocation();
+  } catch (err) {
+    document.getElementById("place").textContent = "Location unavailable";
+    document.getElementById("temp").textContent = "--°C";
+    document.getElementById("icon").textContent = "⚠️";
+  }
+})();
 </script>
 
 </body>
