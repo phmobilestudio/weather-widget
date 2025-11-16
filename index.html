@@ -1,90 +1,122 @@
-<div id="weatherBox" style="font-family:Arial, sans-serif; font-size:11px; max-width:300px; margin:auto; border-radius:10px; padding:10px; color:#222; background:#f9f9f9;">
-  <div id="weatherContent">Loading weather...</div>
-  <button id="changeLocBtn" style="margin-top:8px; font-size:11px; padding:4px 8px; border:none; border-radius:4px; background:#0d6efd; color:white; cursor:pointer;">Change Location</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weather Widget</title>
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    overflow: hidden !important; /* Prevent scrollbars */
+    font-family: Arial, sans-serif;
+  }
+
+  .weather-widget {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: max-content;
+    max-width: 100%;
+    padding: 0;
+    margin: 0 auto;
+    font-size: 11px;
+    background: transparent;
+  }
+
+  .current-temp {
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1;
+  }
+
+  .icon-large {
+    font-size: 24px;
+    margin: 4px 0;
+    line-height: 1;
+  }
+
+  .forecast {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    background: transparent;
+  }
+
+  .day {
+    flex: 1;
+    text-align: center;
+  }
+
+  .day div {
+    margin-bottom: 2px;
+  }
+</style>
+</head>
+
+<body>
+
+<div class="weather-widget">
+  <div id="place">Your Location</div>
+  <div class="current-temp" id="temp">--°C</div>
+  <div class="icon-large" id="icon">⛅</div>
+
+  <div class="forecast" id="forecast"></div>
 </div>
 
 <script>
-const weatherContent = document.getElementById("weatherContent");
-const changeLocBtn = document.getElementById("changeLocBtn");
-const ICONS = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",61:"🌧️",71:"❄️",95:"⛈️"};
-
-// Dark Mode
-const darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-document.getElementById("weatherBox").style.background = darkMode ? "#2c2c2c" : "#f9f9f9";
-document.getElementById("weatherBox").style.color = darkMode ? "#f9f9f9" : "#222";
-
-// Helper: Display weather
-function displayWeather(current, forecast) {
-  let forecastHTML = '';
-  for (let i=1;i<=3;i++){
-    forecastHTML += `<div style="flex:1; text-align:center; margin-top:3px;">
-      <div><b>${new Date(forecast.time[i]).toLocaleDateString("en-US",{weekday:"short"})}</b></div>
-      <div>${ICONS[forecast.weather_code[i]]||"⛅"}</div>
-      <div>${forecast.temperature_2m_max[i]}° / ${forecast.temperature_2m_min[i]}°</div>
-    </div>`;
-  }
-
-  weatherContent.innerHTML = `
-    <div style="text-align:center;">
-      <div><b>${current.temperature}°C</b></div>
-      <div style="font-size:24px;">${ICONS[current.weathercode]||"⛅"}</div>
-      <div style="display:flex; justify-content:space-between;">${forecastHTML}</div>
-    </div>
-  `;
-}
-
-// Fetch weather from Open-Meteo
-async function loadWeather(lat, lon) {
+(async () => {
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`;
-    const data = await fetch(url).then(r=>r.json());
-    localStorage.setItem("weatherLat", lat);
-    localStorage.setItem("weatherLon", lon);
-    displayWeather(data.current_weather, data.daily);
-  } catch {
-    weatherContent.innerHTML = "Unable to load weather.";
+    const geo = await fetch("https://ipapi.co/json/").then(r => r.json());
+
+    const lat = geo.latitude;
+    const lon = geo.longitude;
+    if (!lat || !lon) throw new Error("Location unavailable");
+
+    document.getElementById("place").textContent = geo.city || "Your Location";
+
+    const weatherURL =
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,weather_code` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
+      `&timezone=auto`;
+
+    const data = await fetch(weatherURL).then(r => r.json());
+
+    document.getElementById("temp").textContent =
+      data.current.temperature_2m + "°C";
+
+    const wmo = data.current.weather_code;
+    const icons = {
+      0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+      45: "🌫️", 48: "🌫️",
+      51: "🌦️", 61: "🌧️", 71: "❄️",
+      95: "⛈️"
+    };
+    document.getElementById("icon").textContent = icons[wmo] || "⛅";
+
+    let out = "";
+    for (let i = 1; i <= 3; i++) {
+      out += `
+        <div class="day">
+          <div><strong>${new Date(data.daily.time[i]).toLocaleDateString("en-US", { weekday: "short" })}</strong></div>
+          <div>${icons[data.daily.weather_code[i]] || "⛅"}</div>
+          <div>${data.daily.temperature_2m_max[i]}° / ${data.daily.temperature_2m_min[i]}°</div>
+        </div>`;
+    }
+
+    document.getElementById("forecast").innerHTML = out;
+
+  } catch (err) {
+    document.getElementById("place").textContent = "Location unavailable";
+    document.getElementById("temp").textContent = "--°C";
+    document.getElementById("icon").textContent = "⚠️";
   }
-}
-
-// Manual location
-async function manualSearch() {
-  const city = prompt("Enter city name:");
-  if(!city) return;
-  weatherContent.innerHTML = "Searching location...";
-  try {
-    const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`).then(r=>r.json());
-    if(!geo.results?.length) { weatherContent.innerHTML="Location not found"; return; }
-    loadWeather(geo.results[0].latitude, geo.results[0].longitude);
-  } catch {
-    weatherContent.innerHTML="Error finding location";
-  }
-}
-
-// Init
-async function startWeather() {
-  const savedLat = localStorage.getItem("weatherLat");
-  const savedLon = localStorage.getItem("weatherLon");
-  if(savedLat && savedLon){
-    loadWeather(savedLat,savedLon);
-  } else {
-    navigator.geolocation.getCurrentPosition(
-      pos => loadWeather(pos.coords.latitude,pos.coords.longitude),
-      () => manualSearch(),
-      {timeout:3000}
-    );
-  }
-}
-
-// Change location button
-changeLocBtn.onclick = manualSearch;
-
-// Auto-refresh every 10 min
-setInterval(() => {
-  const savedLat = localStorage.getItem("weatherLat");
-  const savedLon = localStorage.getItem("weatherLon");
-  if(savedLat && savedLon) loadWeather(savedLat,savedLon);
-}, 600000);
-
-// Start widget
-startWeather();
+})();
 </script>
+
+</body>
+</html>
